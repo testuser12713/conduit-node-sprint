@@ -11,11 +11,15 @@ if [ -f .env ]; then
 fi
 
 DB_USER="${POSTGRES_USER:-conduit}"
-DB_PASSWORD="${POSTGRES_PASSWORD:-conduit}"
 DB_NAME="${POSTGRES_DB:-conduit}"
 
+# No committed database password: generate an ephemeral one for this run when unset.
+if [ -z "${POSTGRES_PASSWORD:-}" ]; then
+  export POSTGRES_PASSWORD="$(node -e "process.stdout.write(require('crypto').randomBytes(24).toString('hex'))")"
+fi
+
 # Local development database URL; a value from the environment wins.
-export DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}?schema=public}"
+export DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${POSTGRES_PASSWORD}@localhost:5432/${DB_NAME}?schema=public}"
 
 # No committed signing key: generate an ephemeral one for this run when unset.
 if [ -z "${JWT_SECRET:-}" ]; then
