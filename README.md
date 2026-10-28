@@ -10,6 +10,8 @@
 
 ### Prerequisites
 
+You need Node.js, npm and Docker (for the local PostgreSQL database).
+
 Run the following command to install dependencies:
 
 ```shell
@@ -48,10 +50,26 @@ npx prisma migrate deploy
 
 ### Run the project
 
-Run the following command to run the project:
+The following command starts the whole product for development — the PostgreSQL
+database and the API — in one go:
 
 ```shell
-npx nx serve api
+./dev.sh
+```
+
+It starts the `db` service from `compose.yaml` (PostgreSQL 18, port 5432), waits
+until the database accepts connections, applies the database schema with
+`npx prisma migrate deploy`, and then runs the API on http://localhost:3000 in
+the foreground. The API health endpoint is `GET /`.
+
+`dev.sh` reads a local `.env` file when present. Without one it uses
+`postgresql://conduit:conduit@localhost:5432/conduit?schema=public` as
+`DATABASE_URL` and generates an ephemeral `JWT_SECRET` for the run. Stop the API
+with `Ctrl+C`; the database keeps running in the background and can be stopped
+with:
+
+```shell
+docker compose down
 ```
 
 ### Seed the database
