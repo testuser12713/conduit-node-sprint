@@ -5,6 +5,10 @@ import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
+export { bookmarkArticle, unbookmarkArticle } from './bookmark.service';
+export { getBookmarks } from './bookmarks.service';
+export type { ArticleResponse } from './article.mapper';
+
 const buildFindAllQuery = (query: any, id: number | undefined) => {
   const queries: any = [];
   const orAuthorQuery = [];

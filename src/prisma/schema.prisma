@@ -19,8 +19,9 @@ model Article {
   tagList     Tag[]
   author      User      @relation("UserArticles", fields: [authorId], onDelete: Cascade, references: [id])
   authorId    Int
-  favoritedBy User[]    @relation("UserFavorites")
-  comments    Comment[]
+  favoritedBy  User[]    @relation("UserFavorites")
+  bookmarkedBy User[]    @relation("UserBookmarks")
+  comments     Comment[]
 }
 
 model Comment {
@@ -49,6 +50,7 @@ model User {
   bio        String?
   articles   Article[] @relation("UserArticles")
   favorites  Article[] @relation("UserFavorites")
+  bookmarks  Article[] @relation("UserBookmarks")
   followedBy User[]    @relation("UserFollows")
   following  User[]    @relation("UserFollows")
   comments   Comment[]

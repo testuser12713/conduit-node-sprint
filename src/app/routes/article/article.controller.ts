@@ -2,19 +2,27 @@ import { NextFunction, Request, Response, Router } from 'express';
 import auth from '../auth/auth';
 import {
   addComment,
+  bookmarkArticle,
   createArticle,
   deleteArticle,
   deleteComment,
   favoriteArticle,
   getArticle,
   getArticles,
+  getBookmarks,
   getCommentsByArticle,
   getFeed,
   unfavoriteArticle,
+  unbookmarkArticle,
   updateArticle,
 } from './article.service';
 
 const router = Router();
+
+router.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Cache-Control', 'private, no-store');
+  next();
+});
 
 /**
  * Get paginated articles
@@ -76,6 +84,32 @@ router.post('/articles', auth.required, async (req: Request, res: Response, next
     next(error);
   }
 });
+
+/**
+ * Get paginated bookmarked articles of the current user
+ * @auth required
+ * @route {GET} /articles/bookmarks
+ * @queryparam offset number of bookmarks dismissed from the first one
+ * @queryparam limit number of bookmarks returned
+ * @returns articles: list of bookmarked articles
+ * @returns articlesCount: total number of bookmarked articles
+ */
+router.get(
+  '/articles/bookmarks',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await getBookmarks(
+        req.query.limit as string | undefined,
+        req.query.offset as string | undefined,
+        req.auth?.user?.id,
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 /**
  * Get unique article
@@ -233,6 +267,46 @@ router.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const article = await unfavoriteArticle(req.params.slug, req.auth?.user?.id);
+      res.json({ article });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Bookmark article
+ * @auth required
+ * @route {POST} /articles/:slug/bookmark
+ * @param slug slug of the article (based on the title)
+ * @returns article bookmarked article
+ */
+router.post(
+  '/articles/:slug/bookmark',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const article = await bookmarkArticle(req.params.slug, req.auth?.user?.id);
+      res.json({ article });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Remove bookmark from article
+ * @auth required
+ * @route {DELETE} /articles/:slug/bookmark
+ * @param slug slug of the article (based on the title)
+ * @returns article unbookmarked article
+ */
+router.delete(
+  '/articles/:slug/bookmark',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const article = await unbookmarkArticle(req.params.slug, req.auth?.user?.id);
       res.json({ article });
     } catch (error) {
       next(error);
