@@ -9,7 +9,7 @@
       "install": [["npm", "install", "--include=dev", "--no-audit", "--no-fund"]],
       "build": [["npm", "run", "build"]],
       "test": [["npm", "test"]],
-      "start": ["npx", "ts-node", "--transpile-only", "--compiler-options", "{\"module\":\"CommonJS\"}", "src/main.ts"],
+      "start": ["node", "node_modules/ts-node/dist/bin.js", "--transpile-only", "--compiler-options", "{\"module\":\"CommonJS\"}", "src/main.ts"],
       "port": 3000,
       "port_env": "PORT",
       "health": {
