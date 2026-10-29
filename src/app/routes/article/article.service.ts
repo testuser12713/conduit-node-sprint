@@ -5,6 +5,35 @@ import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
+type ArticleResponse = ReturnType<typeof articleMapper>;
+
+const bookmarkArticleInclude = {
+  tagList: {
+    select: {
+      name: true,
+    },
+  },
+  author: {
+    select: {
+      username: true,
+      bio: true,
+      image: true,
+      followedBy: true,
+    },
+  },
+  favoritedBy: true,
+  bookmarkedBy: {
+    select: {
+      id: true,
+    },
+  },
+  _count: {
+    select: {
+      favoritedBy: true,
+    },
+  },
+};
+
 const buildFindAllQuery = (query: any, id: number | undefined) => {
   const queries: any = [];
   const orAuthorQuery = [];
@@ -603,6 +632,68 @@ export const favoriteArticle = async (slugPayload: string, id: number) => {
   };
 
   return result;
+};
+
+export const addBookmark = async (slug: string, userId: number): Promise<ArticleResponse> => {
+  const existingArticle = await prisma.article.findUnique({
+    where: {
+      slug,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!existingArticle) {
+    throw new HttpException(404, { errors: { article: ['not found'] } });
+  }
+
+  const article = await prisma.article.update({
+    where: {
+      slug,
+    },
+    data: {
+      bookmarkedBy: {
+        connect: {
+          id: userId,
+        },
+      },
+    },
+    include: bookmarkArticleInclude,
+  });
+
+  return articleMapper(article, userId);
+};
+
+export const removeBookmark = async (slug: string, userId: number): Promise<ArticleResponse> => {
+  const existingArticle = await prisma.article.findUnique({
+    where: {
+      slug,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!existingArticle) {
+    throw new HttpException(404, { errors: { article: ['not found'] } });
+  }
+
+  const article = await prisma.article.update({
+    where: {
+      slug,
+    },
+    data: {
+      bookmarkedBy: {
+        disconnect: {
+          id: userId,
+        },
+      },
+    },
+    include: bookmarkArticleInclude,
+  });
+
+  return articleMapper(article, userId);
 };
 
 export const unfavoriteArticle = async (slugPayload: string, id: number) => {
