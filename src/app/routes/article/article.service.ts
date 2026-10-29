@@ -592,6 +592,56 @@ export const addBookmark = async (slug: string, userId: number) => {
   return articleMapper(article, userId);
 };
 
+type BookmarkedArticlesQuery = {
+  offset?: unknown;
+  limit?: unknown;
+};
+
+export const getBookmarkedArticles = async (
+  userId: number,
+  query: BookmarkedArticlesQuery,
+) => {
+  try {
+    const bookmarks = await prisma.userBookmarks.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      skip: Number(query.offset) || 0,
+      take: Number(query.limit) || 10,
+      include: {
+        article: {
+          include: {
+            tagList: { select: { name: true } },
+            author: {
+              select: {
+                username: true,
+                bio: true,
+                image: true,
+                followedBy: true,
+              },
+            },
+            favoritedBy: true,
+            _count: { select: { favoritedBy: true } },
+            ...articleBookmarkInclude(userId),
+          },
+        },
+      },
+    });
+
+    const articlesCount = await prisma.userBookmarks.count({ where: { userId } });
+
+    return {
+      articles: bookmarks.map((row) => articleMapper(row.article, userId)),
+      articlesCount,
+    };
+  } catch (error) {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+
+    throw new HttpException(500, { errors: { body: ['could not load bookmarks'] } });
+  }
+};
+
 export const removeBookmark = async (slug: string, userId: number) => {
   const article = await findArticleForBookmark(slug, userId);
 

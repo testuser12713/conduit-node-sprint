@@ -10,6 +10,7 @@ import {
   favoriteArticle,
   getArticle,
   getArticles,
+  getBookmarkedArticles,
   getCommentsByArticle,
   getFeed,
   removeBookmark,
@@ -55,6 +56,28 @@ router.get(
         Number(req.query.limit),
         req.auth?.user?.id,
       );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Get paginated bookmarked articles
+ * @auth required
+ * @route {GET} /articles/bookmarks
+ * @queryparam offset number of bookmarks dismissed from the first one
+ * @queryparam limit number of articles returned
+ * @returns articles: list of bookmarked articles
+ * @returns articlesCount: total number of the caller's bookmarks
+ */
+router.get(
+  '/articles/bookmarks',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await getBookmarkedArticles(req.auth?.user?.id, req.query);
       res.json(result);
     } catch (error) {
       next(error);
