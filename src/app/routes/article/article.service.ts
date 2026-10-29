@@ -559,17 +559,27 @@ export const deleteComment = async (id: number, userId: number) => {
   });
 };
 
-export const favoriteArticle = async (slugPayload: string, id: number) => {
+const updateFavorite = async (
+  slugPayload: string,
+  id: number,
+  favorite: boolean,
+) => {
   const { _count, ...article } = await prisma.article.update({
     where: {
       slug: slugPayload,
     },
     data: {
-      favoritedBy: {
-        connect: {
-          id: id,
-        },
-      },
+      favoritedBy: favorite
+        ? {
+            connect: {
+              id: id,
+            },
+          }
+        : {
+            disconnect: {
+              id: id,
+            },
+          },
     },
     include: {
       tagList: {
@@ -594,59 +604,18 @@ export const favoriteArticle = async (slugPayload: string, id: number) => {
     },
   });
 
-  const result = {
+  return {
     ...article,
+    readingTime: articleMapper(article, id).readingTime,
     author: profileMapper(article.author, id),
     tagList: article?.tagList.map((tag: Tag) => tag.name),
     favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
     favoritesCount: _count?.favoritedBy,
   };
-
-  return result;
 };
 
-export const unfavoriteArticle = async (slugPayload: string, id: number) => {
-  const { _count, ...article } = await prisma.article.update({
-    where: {
-      slug: slugPayload,
-    },
-    data: {
-      favoritedBy: {
-        disconnect: {
-          id: id,
-        },
-      },
-    },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
-  });
+export const favoriteArticle = async (slugPayload: string, id: number) =>
+  updateFavorite(slugPayload, id, true);
 
-  const result = {
-    ...article,
-    author: profileMapper(article.author, id),
-    tagList: article?.tagList.map((tag: Tag) => tag.name),
-    favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
-    favoritesCount: _count?.favoritedBy,
-  };
-
-  return result;
-};
+export const unfavoriteArticle = async (slugPayload: string, id: number) =>
+  updateFavorite(slugPayload, id, false);
