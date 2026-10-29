@@ -2,8 +2,30 @@ import prismaMock from '../prisma-mock';
 import {
   deleteComment,
   favoriteArticle,
+  getArticle,
   unfavoriteArticle,
 } from '../../app/routes/article/article.service';
+
+const buildMockedArticle = (overrides: Record<string, any> = {}) => ({
+  id: 123,
+  slug: 'How-to-train-your-dragon',
+  title: 'How to train your dragon',
+  description: '',
+  body: '',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  authorId: 456,
+  tagList: [],
+  favoritedBy: [],
+  bookmarkedBy: [],
+  author: {
+    username: 'RealWorld',
+    bio: null,
+    image: null,
+    followedBy: [],
+  },
+  ...overrides,
+});
 
 describe('ArticleService', () => {
   describe('deleteComment', () => {
@@ -38,24 +60,7 @@ describe('ArticleService', () => {
         demo: false,
       };
 
-      const mockedArticleResponse = {
-        id: 123,
-        slug: 'How-to-train-your-dragon',
-        title: 'How to train your dragon',
-        description: '',
-        body: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        authorId: 456,
-        tagList: [],
-        favoritedBy: [],
-        author: {
-          username: 'RealWorld',
-          bio: null,
-          image: null,
-          followedBy: [],
-        },
-      };
+      const mockedArticleResponse = buildMockedArticle();
 
       // When
       // @ts-ignore
@@ -67,6 +72,38 @@ describe('ArticleService', () => {
       await expect(favoriteArticle(slug, mockedUserResponse.id)).resolves.toHaveProperty(
         'favoritesCount',
       );
+    });
+
+    test('should return bookmarked true when the acting user has bookmarked the article', async () => {
+      // Given
+      const slug = 'How-to-train-your-dragon';
+      const actingUserId = 123;
+
+      // When
+      // @ts-ignore
+      prismaMock.article.update.mockResolvedValue(
+        buildMockedArticle({ bookmarkedBy: [{ id: actingUserId }] }),
+      );
+
+      // Then
+      const result = await favoriteArticle(slug, actingUserId);
+      expect(result.bookmarked).toBe(true);
+    });
+
+    test('should return bookmarked false when only another user has bookmarked the article', async () => {
+      // Given
+      const slug = 'How-to-train-your-dragon';
+      const actingUserId = 123;
+
+      // When
+      // @ts-ignore
+      prismaMock.article.update.mockResolvedValue(
+        buildMockedArticle({ bookmarkedBy: [{ id: 999 }] }),
+      );
+
+      // Then
+      const result = await favoriteArticle(slug, actingUserId);
+      expect(result.bookmarked).toBe(false);
     });
 
     test('should throw an error if no user is found', async () => {
@@ -99,24 +136,7 @@ describe('ArticleService', () => {
         demo: false,
       };
 
-      const mockedArticleResponse = {
-        id: 123,
-        slug: 'How-to-train-your-dragon',
-        title: 'How to train your dragon',
-        description: '',
-        body: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        authorId: 456,
-        tagList: [],
-        favoritedBy: [],
-        author: {
-          username: 'RealWorld',
-          bio: null,
-          image: null,
-          followedBy: [],
-        },
-      };
+      const mockedArticleResponse = buildMockedArticle();
 
       // When
       prismaMock.user.findUnique.mockResolvedValue(mockedUserResponse);
@@ -126,6 +146,22 @@ describe('ArticleService', () => {
       await expect(unfavoriteArticle(slug, mockedUserResponse.id)).resolves.toHaveProperty(
         'favoritesCount',
       );
+    });
+
+    test('should return bookmarked true when the acting user has bookmarked the article', async () => {
+      // Given
+      const slug = 'How-to-train-your-dragon';
+      const actingUserId = 123;
+
+      // When
+      // @ts-ignore
+      prismaMock.article.update.mockResolvedValue(
+        buildMockedArticle({ bookmarkedBy: [{ id: actingUserId }] }),
+      );
+
+      // Then
+      const result = await unfavoriteArticle(slug, actingUserId);
+      expect(result.bookmarked).toBe(true);
     });
 
     test('should throw an error if no user is found', async () => {
@@ -139,6 +175,55 @@ describe('ArticleService', () => {
 
       // Then
       await expect(unfavoriteArticle(slug, id)).rejects.toThrowError();
+    });
+  });
+
+  describe('getArticle', () => {
+    test('should return bookmarked true when the acting user has bookmarked the article', async () => {
+      // Given
+      const slug = 'how-to-train-your-dragon';
+      const actingUserId = 123;
+
+      // When
+      // @ts-ignore
+      prismaMock.article.findUnique.mockResolvedValue(
+        buildMockedArticle({ bookmarkedBy: [{ id: actingUserId }] }),
+      );
+
+      // Then
+      const result = await getArticle(slug, actingUserId);
+      expect(result.bookmarked).toBe(true);
+    });
+
+    test('should return bookmarked false when only another user has bookmarked the article', async () => {
+      // Given
+      const slug = 'how-to-train-your-dragon';
+      const actingUserId = 123;
+
+      // When
+      // @ts-ignore
+      prismaMock.article.findUnique.mockResolvedValue(
+        buildMockedArticle({ bookmarkedBy: [{ id: 999 }] }),
+      );
+
+      // Then
+      const result = await getArticle(slug, actingUserId);
+      expect(result.bookmarked).toBe(false);
+    });
+
+    test('should return bookmarked false without an acting user id', async () => {
+      // Given
+      const slug = 'how-to-train-your-dragon';
+
+      // When
+      // @ts-ignore
+      prismaMock.article.findUnique.mockResolvedValue(
+        buildMockedArticle({ bookmarkedBy: [{ id: 123 }] }),
+      );
+
+      // Then
+      const result = await getArticle(slug);
+      expect(result.bookmarked).toBe(false);
     });
   });
 });
