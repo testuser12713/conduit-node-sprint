@@ -148,6 +148,52 @@ export const getFeed = async (offset: number, limit: number, id: number) => {
   };
 };
 
+export const getBookmarkedArticles = async (
+  offset: number,
+  limit: number,
+  userId: number,
+): Promise<{ articles: ArticleResponse[]; articlesCount: number }> => {
+  const validOffset = offset ?? 0;
+  const validLimit = limit ?? 10;
+
+  if (!Number.isInteger(validLimit) || validLimit < 1 || validLimit > 100) {
+    throw new HttpException(422, {
+      errors: { limit: ['must be an integer between 1 and 100'] },
+    });
+  }
+
+  if (!Number.isInteger(validOffset) || validOffset < 0) {
+    throw new HttpException(422, {
+      errors: { offset: ['must be an integer greater than or equal to 0'] },
+    });
+  }
+
+  const where = {
+    bookmarkedBy: {
+      some: {
+        id: userId,
+      },
+    },
+  };
+
+  const articlesCount = await prisma.article.count({ where });
+
+  const articles = await prisma.article.findMany({
+    where,
+    orderBy: {
+      createdAt: 'desc',
+    },
+    skip: validOffset,
+    take: validLimit,
+    include: bookmarkArticleInclude,
+  });
+
+  return {
+    articles: articles.map((article) => articleMapper(article, userId)),
+    articlesCount,
+  };
+};
+
 export const createArticle = async (article: any, id: number) => {
   const { title, description, body, tagList } = article;
   const tags = Array.isArray(tagList) ? tagList : [];
