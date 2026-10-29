@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "start": "nx serve",
+    "start:prod": "prisma migrate deploy && node dist/api/main.js",
     "build": "nx build",
     "test": "nx test"
   },
