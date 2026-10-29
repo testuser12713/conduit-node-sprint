@@ -1,0 +1,38 @@
+{
+  "runcontract": 1,
+  "services": [
+    {
+      "name": "db",
+      "kind": "database",
+      "engine": "postgres"
+    },
+    {
+      "name": "api",
+      "dir": ".",
+      "stack": "node",
+      "kind": "server",
+      "depends_on": ["db"],
+      "install": [
+        ["npm", "install", "--no-audit", "--no-fund"],
+        ["npx", "prisma", "generate"]
+      ],
+      "build": [["npm", "run", "build"]],
+      "test": [
+        ["npx", "prisma", "migrate", "deploy"],
+        ["npm", "test"]
+      ],
+      "start": ["npm", "run", "start:prod"],
+      "port": 3000,
+      "port_env": "PORT",
+      "health": {
+        "path": "/",
+        "expect_status": [200]
+      },
+      "env": {
+        "NODE_ENV": { "dev": "development" },
+        "DATABASE_URL": { "dev": "${service:db.url}" },
+        "JWT_SECRET": { "generate": "hex", "bytes": 32 }
+      }
+    }
+  ]
+}
