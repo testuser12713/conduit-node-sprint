@@ -1,8 +1,91 @@
 import prismaMock from '../prisma-mock';
 import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
 import { createUser, getCurrentUser, login, updateUser } from '../../app/routes/auth/auth.service';
+import generateToken from '../../app/routes/auth/token.utils';
+import getJwtSecret from '../../app/routes/auth/jwt-secret';
+
+const TEST_JWT_SECRET = 'test-jwt-secret-for-auth-service-tests';
+const originalJwtSecret = process.env.JWT_SECRET;
+
+const userMock = prismaMock.user as unknown as {
+  create: jest.Mock;
+  findUnique: jest.Mock;
+  update: jest.Mock;
+};
 
 describe('AuthService', () => {
+  beforeEach(() => {
+    process.env.JWT_SECRET = TEST_JWT_SECRET;
+  });
+
+  afterAll(() => {
+    if (originalJwtSecret === undefined) {
+      delete process.env.JWT_SECRET;
+    } else {
+      process.env.JWT_SECRET = originalJwtSecret;
+    }
+  });
+
+  describe('JWT secret', () => {
+    test('getJwtSecret returns the value from the environment', () => {
+      expect(getJwtSecret()).toBe(TEST_JWT_SECRET);
+    });
+
+    test('getJwtSecret throws and names the variable when it is unset', () => {
+      // Given
+      delete process.env.JWT_SECRET;
+
+      // When
+      let thrown: Error | undefined;
+      try {
+        getJwtSecret();
+      } catch (error) {
+        thrown = error as Error;
+      }
+
+      // Then
+      expect(thrown).toBeInstanceOf(Error);
+      expect(thrown?.message).toContain('JWT_SECRET');
+      expect(thrown?.message).not.toContain(TEST_JWT_SECRET);
+    });
+
+    test('getJwtSecret throws and names the variable when it is empty', () => {
+      // Given
+      process.env.JWT_SECRET = '';
+
+      // Then
+      expect(() => getJwtSecret()).toThrow('JWT_SECRET');
+    });
+
+    test('generateToken signs a token that verifies with the configured secret', () => {
+      // When
+      const token = generateToken(123);
+
+      // Then
+      const decoded = jwt.verify(token, TEST_JWT_SECRET) as jwt.JwtPayload;
+      expect(decoded.user).toEqual({ id: 123 });
+    });
+
+    test('generateToken throws and names the variable when it is unset', () => {
+      // Given
+      delete process.env.JWT_SECRET;
+
+      // Then
+      expect(() => generateToken(123)).toThrow('JWT_SECRET');
+    });
+
+    test('a token signed with another secret does not verify', () => {
+      // Given
+      const token = jwt.sign({ user: { id: 123 } }, 'another-secret', {
+        expiresIn: '60d',
+      });
+
+      // Then
+      expect(() => jwt.verify(token, TEST_JWT_SECRET)).toThrow();
+    });
+  });
+
   describe('createUser', () => {
     test('should create new user ', async () => {
       // Given
@@ -20,13 +103,12 @@ describe('AuthService', () => {
         password: '1234',
         bio: null,
         image: null,
-        token: '',
         demo: false,
       };
 
       // When
-      // @ts-ignore
-      prismaMock.user.create.mockResolvedValue(mockedResponse);
+      const userCreateMock = userMock.create;
+      userCreateMock.mockResolvedValue(mockedResponse);
 
       // Then
       await expect(createUser(user)).resolves.toHaveProperty('token');
@@ -95,7 +177,7 @@ describe('AuthService', () => {
       };
 
       // When
-      prismaMock.user.findUnique.mockResolvedValue(mockedExistingUser);
+      userMock.findUnique.mockResolvedValue(mockedExistingUser);
 
       // Then
       const error = { email: ['has already been taken'] }.toString();
@@ -125,7 +207,7 @@ describe('AuthService', () => {
       };
 
       // When
-      prismaMock.user.findUnique.mockResolvedValue(mockedResponse);
+      userMock.findUnique.mockResolvedValue(mockedResponse);
 
       // Then
       await expect(login(user)).resolves.toHaveProperty('token');
@@ -163,7 +245,7 @@ describe('AuthService', () => {
       };
 
       // When
-      prismaMock.user.findUnique.mockResolvedValue(null);
+      userMock.findUnique.mockResolvedValue(null);
 
       // Then
       const error = String({ errors: { 'email or password': ['is invalid'] } });
@@ -191,7 +273,7 @@ describe('AuthService', () => {
       };
 
       // When
-      prismaMock.user.findUnique.mockResolvedValue(mockedResponse);
+      userMock.findUnique.mockResolvedValue(mockedResponse);
 
       // Then
       const error = String({ errors: { 'email or password': ['is invalid'] } });
@@ -216,7 +298,7 @@ describe('AuthService', () => {
       };
 
       // When
-      prismaMock.user.findUnique.mockResolvedValue(mockedResponse);
+      userMock.findUnique.mockResolvedValue(mockedResponse);
 
       // Then
       await expect(getCurrentUser(id)).resolves.toHaveProperty('token');
@@ -245,7 +327,7 @@ describe('AuthService', () => {
       };
 
       // When
-      prismaMock.user.update.mockResolvedValue(mockedResponse);
+      userMock.update.mockResolvedValue(mockedResponse);
 
       // Then
       await expect(updateUser(user, user.id)).resolves.toHaveProperty('token');
