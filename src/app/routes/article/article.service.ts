@@ -360,6 +360,18 @@ export const deleteArticle = async (slug: string, id: number) => {
       message: 'You are not authorized to delete this article',
     });
   }
+
+  await prisma.article.update({
+    where: {
+      slug,
+    },
+    data: {
+      bookmarkedBy: {
+        set: [],
+      },
+    },
+  });
+
   await prisma.article.delete({
     where: {
       slug,
