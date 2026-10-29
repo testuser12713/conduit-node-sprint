@@ -9,6 +9,7 @@ import {
   favoriteArticle,
   getArticle,
   getArticles,
+  getBookmarkedArticles,
   getCommentsByArticle,
   getFeed,
   removeBookmark,
@@ -80,9 +81,32 @@ router.post('/articles', auth.required, async (req: Request, res: Response, next
 });
 
 /**
+ * Get paginated bookmarked articles of the authenticated user
+ * @auth required
+ * @route {GET} /articles/bookmarks
+ * @queryparam offset number of bookmarks dismissed from the first one (default 0)
+ * @queryparam limit number of bookmarks returned (default 10, between 1 and 100)
+ * @returns articles list of bookmarked articles, articlesCount total number of bookmarks
+ */
+router.get(
+  '/articles/bookmarks',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+      const limit = req.query.limit === undefined ? 10 : Number(req.query.limit);
+      const result = await getBookmarkedArticles(offset, limit, req.auth?.user?.id);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
  * Get unique article
  * @auth optional
- * @route {GET} /article/:slug
+ * @route {GET} /articles/:slug
  * @param slug slug of the article (based on the title)
  * @returns article
  */
