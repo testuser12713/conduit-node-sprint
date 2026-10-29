@@ -201,6 +201,54 @@ describe('BookmarkService', () => {
   });
 });
 
+describe('BookmarkService unexpected database errors', () => {
+  const rawMessage =
+    'PrismaClientKnownRequestError: Foreign key constraint failed on users.email realworld@me';
+  const rawError = new Error(rawMessage);
+
+  const run = (operation: 'bookmark' | 'unbookmark') =>
+    operation === 'bookmark' ? bookmarkArticle(slug, 123) : unbookmarkArticle(slug, 123);
+
+  test.each(['bookmark', 'unbookmark'] as const)(
+    'should answer %s sanitized when the article lookup fails',
+    async (operation) => {
+      // Given
+      articleMock.findUnique.mockRejectedValue(rawError);
+
+      // When
+      const error = await run(operation).catch((thrown) => thrown);
+
+      // Then
+      expect(error).toMatchObject({
+        errorCode: 500,
+        message: { errors: { article: ['could not be processed'] } },
+      });
+      expect(JSON.stringify(error.message)).not.toContain('Prisma');
+      expect(JSON.stringify(error.message)).not.toContain('realworld@me');
+    },
+  );
+
+  test.each(['bookmark', 'unbookmark'] as const)(
+    'should answer %s sanitized when the article update fails',
+    async (operation) => {
+      // Given
+      articleMock.findUnique.mockResolvedValue(buildArticleFixture());
+      articleMock.update.mockRejectedValue(rawError);
+
+      // When
+      const error = await run(operation).catch((thrown) => thrown);
+
+      // Then
+      expect(error).toMatchObject({
+        errorCode: 500,
+        message: { errors: { article: ['could not be processed'] } },
+      });
+      expect(JSON.stringify(error.message)).not.toContain('Prisma');
+      expect(JSON.stringify(error.message)).not.toContain('realworld@me');
+    },
+  );
+});
+
 describe('BookmarkController', () => {
   test.each(['post', 'delete'] as const)(
     'should guard %s /articles/:slug/bookmark with auth.required',
@@ -272,5 +320,31 @@ describe('BookmarkController', () => {
       errorCode: 404,
       message: { errors: { article: ['not found'] } },
     });
+  });
+
+  test('should pass a sanitized error to the handler instead of raw prisma text', async () => {
+    // Given
+    const handler = getRoute('post').stack[1].handle;
+    const req = {
+      params: { slug },
+      auth: { user: { id: 123 } },
+    } as unknown as Request;
+    const res = { json: jest.fn() } as unknown as Response;
+    const next = jest.fn();
+
+    // When
+    articleMock.findUnique.mockRejectedValue(new Error('PrismaClient error for realworld@me'));
+    await handler(req, res, next);
+
+    // Then
+    expect(res.json).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(expect.any(HttpException));
+    const forwarded = next.mock.calls[0][0];
+    expect(forwarded).toMatchObject({
+      errorCode: 500,
+      message: { errors: { article: ['could not be processed'] } },
+    });
+    expect(JSON.stringify(forwarded.message)).not.toContain('Prisma');
+    expect(JSON.stringify(forwarded.message)).not.toContain('realworld@me');
   });
 });

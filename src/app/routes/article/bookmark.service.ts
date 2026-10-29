@@ -29,38 +29,49 @@ const bookmarkInclude = {
   },
 } as const;
 
+const unexpectedError = () =>
+  new HttpException(500, { errors: { article: ['could not be processed'] } });
+
 const updateBookmark = async (slug: string, id: number, connect: boolean) => {
-  const existingArticle = await prisma.article.findUnique({
-    where: {
-      slug,
-    },
-  });
+  try {
+    const existingArticle = await prisma.article.findUnique({
+      where: {
+        slug,
+      },
+    });
 
-  if (!existingArticle) {
-    throw new HttpException(404, { errors: { article: ['not found'] } });
+    if (!existingArticle) {
+      throw new HttpException(404, { errors: { article: ['not found'] } });
+    }
+
+    const article = await prisma.article.update({
+      where: {
+        slug,
+      },
+      data: {
+        bookmarkedBy: connect
+          ? {
+              connect: {
+                id,
+              },
+            }
+          : {
+              disconnect: {
+                id,
+              },
+            },
+      },
+      include: bookmarkInclude,
+    });
+
+    return articleMapper(article, id);
+  } catch (error) {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+
+    throw unexpectedError();
   }
-
-  const article = await prisma.article.update({
-    where: {
-      slug,
-    },
-    data: {
-      bookmarkedBy: connect
-        ? {
-            connect: {
-              id,
-            },
-          }
-        : {
-            disconnect: {
-              id,
-            },
-          },
-    },
-    include: bookmarkInclude,
-  });
-
-  return articleMapper(article, id);
 };
 
 export const bookmarkArticle = async (slug: string, id: number) =>
