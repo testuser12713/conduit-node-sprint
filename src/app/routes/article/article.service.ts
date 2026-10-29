@@ -106,7 +106,7 @@ export const getArticles = async (query: any, id?: number) => {
   });
 
   return {
-    articles: articles.map((article: any) => articleMapper(article, id)),
+    articles: articles.map((article) => articleMapper(article, id)),
     articlesCount,
   };
 };
@@ -135,7 +135,7 @@ export const getFeed = async (offset: number, limit: number, id: number) => {
   });
 
   return {
-    articles: articles.map((article: any) => articleMapper(article, id)),
+    articles: articles.map((article) => articleMapper(article, id)),
     articlesCount,
   };
 };
@@ -514,4 +514,101 @@ export const unfavoriteArticle = async (slugPayload: string, id: number) => {
   });
 
   return articleMapper(article, id);
+};
+
+export const bookmarkArticle = async (slug: string, id: number) => {
+  const article = await prisma.article.findUnique({
+    where: {
+      slug,
+    },
+    include: articleInclude,
+  });
+
+  if (!article) {
+    throw new HttpException(404, { errors: { article: ['not found'] } });
+  }
+
+  const isBookmarked = article.bookmarkedBy.some((bookmarkedUser: { id: number }) => bookmarkedUser.id === id);
+
+  if (isBookmarked) {
+    return articleMapper(article, id);
+  }
+
+  const updatedArticle = await prisma.article.update({
+    where: {
+      slug,
+    },
+    data: {
+      bookmarkedBy: {
+        connect: {
+          id: id,
+        },
+      },
+    },
+    include: articleInclude,
+  });
+
+  return articleMapper(updatedArticle, id);
+};
+
+export const unbookmarkArticle = async (slug: string, id: number) => {
+  const article = await prisma.article.findUnique({
+    where: {
+      slug,
+    },
+    include: articleInclude,
+  });
+
+  if (!article) {
+    throw new HttpException(404, { errors: { article: ['not found'] } });
+  }
+
+  const isBookmarked = article.bookmarkedBy.some((bookmarkedUser: { id: number }) => bookmarkedUser.id === id);
+
+  if (!isBookmarked) {
+    return articleMapper(article, id);
+  }
+
+  const updatedArticle = await prisma.article.update({
+    where: {
+      slug,
+    },
+    data: {
+      bookmarkedBy: {
+        disconnect: {
+          id: id,
+        },
+      },
+    },
+    include: articleInclude,
+  });
+
+  return articleMapper(updatedArticle, id);
+};
+
+export const getBookmarkedArticles = async (query: Record<string, unknown>, id: number) => {
+  const where = {
+    bookmarkedBy: {
+      some: {
+        id,
+      },
+    },
+  };
+
+  const articlesCount = await prisma.article.count({ where });
+
+  const articles = await prisma.article.findMany({
+    where,
+    orderBy: {
+      createdAt: 'desc',
+    },
+    skip: Number(query.offset) || 0,
+    take: Number(query.limit) || 10,
+    include: articleInclude,
+  });
+
+  return {
+    articles: articles.map((article) => articleMapper(article, id)),
+    articlesCount,
+  };
 };
