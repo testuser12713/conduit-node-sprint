@@ -1,8 +1,31 @@
+import { execFileSync } from 'child_process';
 import express from 'express';
 import cors from 'cors';
 import * as bodyParser from 'body-parser';
 import routes from './app/routes/routes';
 import HttpException from './app/models/http-exception.model';
+
+const applyMigrations = () => {
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      'DATABASE_URL is not set. The API requires PostgreSQL; declare it in RUN.json or .env.',
+    );
+    process.exit(1);
+  }
+
+  try {
+    execFileSync(
+      process.execPath,
+      [require.resolve('prisma/build/index.js'), 'migrate', 'deploy'],
+      { stdio: 'inherit' },
+    );
+  } catch (error) {
+    console.error(
+      'Failed to apply Prisma migrations. Check DATABASE_URL and the database connection.',
+    );
+    process.exit(1);
+  }
+};
 
 const app = express();
 
@@ -49,6 +72,8 @@ app.use(
 /**
  * Server activation
  */
+
+applyMigrations();
 
 const PORT = process.env.PORT || 3000;
 
