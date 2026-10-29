@@ -6,7 +6,8 @@
     "start": "nx serve",
     "build": "nx build",
     "test": "nx test",
-    "dev": "./dev.sh"
+    "dev": "./dev.sh",
+    "postinstall": "prisma generate"
   },
   "private": true,
   "prisma": {
