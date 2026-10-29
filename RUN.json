@@ -11,19 +11,9 @@
       "dir": ".",
       "stack": "node",
       "kind": "server",
-      "install": [
-        ["npm", "ci", "--include=dev"],
-        ["npx", "prisma", "generate"]
-      ],
-      "build": [["npm", "run", "build"]],
-      "start": [
-        "npx",
-        "ts-node",
-        "--transpile-only",
-        "--compiler-options",
-        "{\"module\":\"CommonJS\"}",
-        "src/main.ts"
-      ],
+      "install": [["npm", "install"], ["npx", "prisma", "generate"]],
+      "build": [["npx", "nx", "build", "api"]],
+      "start": ["npx", "nx", "serve", "api", "--watch=false"],
       "port": 3000,
       "port_env": "PORT",
       "health": {
@@ -32,6 +22,8 @@
       },
       "ready_timeout_s": 60,
       "test": [["npm", "test"]],
+      "seed": [["npx", "prisma", "db", "seed"]],
+      "depends_on": ["db"],
       "env": {
         "DATABASE_URL": { "dev": "${service:db.url}" },
         "JWT_SECRET": { "generate": "hex", "bytes": 32 },
