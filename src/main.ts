@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import * as bodyParser from 'body-parser';
+import { execFileSync } from 'child_process';
 import routes from './app/routes/routes';
 import HttpException from './app/models/http-exception.model';
 
@@ -45,6 +46,31 @@ app.use(
     }
   },
 );
+
+/**
+ * Apply the database migrations before serving so a freshly started
+ * application always finds its schema in place.
+ */
+
+const applyMigrations = (): void => {
+  let prismaCli: string;
+
+  try {
+    prismaCli = require.resolve('prisma/build/index.js');
+  } catch {
+    console.warn(
+      'Prisma CLI is not installed in this runtime; apply migrations with "prisma migrate deploy" before starting.',
+    );
+    return;
+  }
+
+  console.info('Applying database migrations');
+  execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
+    stdio: 'inherit',
+  });
+};
+
+applyMigrations();
 
 /**
  * Server activation
