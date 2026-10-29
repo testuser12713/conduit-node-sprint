@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import * as bodyParser from 'body-parser';
+import { spawnSync } from 'child_process';
 import routes from './app/routes/routes';
 import HttpException from './app/models/http-exception.model';
 
@@ -47,8 +48,49 @@ app.use(
 );
 
 /**
+ * Database schema
+ *
+ * The API always starts against a database the product itself prepared: the
+ * repository's own Prisma migrations are applied before the port is bound, so a
+ * freshly provisioned, empty database serves requests immediately.
+ */
+
+function applyMigrations(): void {
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      'DATABASE_URL is not set. Point it at the PostgreSQL database from RUN.json before starting the API.',
+    );
+    process.exit(1);
+  }
+
+  let prismaCli: string;
+  try {
+    prismaCli = require.resolve('prisma/build/index.js');
+  } catch {
+    console.warn(
+      'Prisma CLI is not installed; skipping automatic migrations. Apply them with "npx prisma migrate deploy" before starting the API.',
+    );
+    return;
+  }
+
+  const result = spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
+    stdio: 'inherit',
+    env: process.env,
+  });
+
+  if (result.status !== 0) {
+    console.error(
+      'Database migrations failed. Check DATABASE_URL and the migrations in src/prisma/migrations.',
+    );
+    process.exit(1);
+  }
+}
+
+/**
  * Server activation
  */
+
+applyMigrations();
 
 const PORT = process.env.PORT || 3000;
 
