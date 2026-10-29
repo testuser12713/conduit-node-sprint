@@ -1,9 +1,12 @@
+import articleMapper from '../../app/routes/article/article.mapper';
 import prismaMock from '../prisma-mock';
 import {
   deleteComment,
   favoriteArticle,
   unfavoriteArticle,
 } from '../../app/routes/article/article.service';
+
+const ARTICLE_BODY = Array.from({ length: 401 }, () => 'dragon').join(' ');
 
 describe('ArticleService', () => {
   describe('deleteComment', () => {
@@ -43,7 +46,7 @@ describe('ArticleService', () => {
         slug: 'How-to-train-your-dragon',
         title: 'How to train your dragon',
         description: '',
-        body: '',
+        body: ARTICLE_BODY,
         createdAt: new Date(),
         updatedAt: new Date(),
         authorId: 456,
@@ -64,8 +67,13 @@ describe('ArticleService', () => {
       prismaMock.article.update.mockResolvedValue(mockedArticleResponse);
 
       // Then
-      await expect(favoriteArticle(slug, mockedUserResponse.id)).resolves.toHaveProperty(
-        'favoritesCount',
+      const result = await favoriteArticle(slug, mockedUserResponse.id);
+
+      expect(result).toHaveProperty('favoritesCount');
+      expect(Number.isInteger(result.readingTime)).toBe(true);
+      expect(result.readingTime).toBeGreaterThanOrEqual(1);
+      expect(result.readingTime).toBe(
+        articleMapper(mockedArticleResponse, mockedUserResponse.id).readingTime,
       );
     });
 
@@ -104,7 +112,7 @@ describe('ArticleService', () => {
         slug: 'How-to-train-your-dragon',
         title: 'How to train your dragon',
         description: '',
-        body: '',
+        body: ARTICLE_BODY,
         createdAt: new Date(),
         updatedAt: new Date(),
         authorId: 456,
@@ -123,8 +131,13 @@ describe('ArticleService', () => {
       prismaMock.article.update.mockResolvedValue(mockedArticleResponse);
 
       // Then
-      await expect(unfavoriteArticle(slug, mockedUserResponse.id)).resolves.toHaveProperty(
-        'favoritesCount',
+      const result = await unfavoriteArticle(slug, mockedUserResponse.id);
+
+      expect(result).toHaveProperty('favoritesCount');
+      expect(Number.isInteger(result.readingTime)).toBe(true);
+      expect(result.readingTime).toBeGreaterThanOrEqual(1);
+      expect(result.readingTime).toBe(
+        articleMapper(mockedArticleResponse, mockedUserResponse.id).readingTime,
       );
     });
 
