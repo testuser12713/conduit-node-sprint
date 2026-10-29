@@ -1,0 +1,36 @@
+{
+  "runcontract": 1,
+  "services": [
+    {
+      "name": "db",
+      "kind": "database",
+      "engine": "postgres"
+    },
+    {
+      "name": "api",
+      "dir": ".",
+      "stack": "node",
+      "kind": "server",
+      "install": [
+        ["npm", "ci"],
+        ["npx", "prisma", "generate"]
+      ],
+      "build": [["npm", "run", "build"]],
+      "start": ["node", "scripts/start.cjs"],
+      "port": 3000,
+      "port_env": "PORT",
+      "ready_timeout_s": 60,
+      "health": {
+        "path": "/",
+        "expect_status": [200]
+      },
+      "test": [["npm", "test"]],
+      "env": {
+        "DATABASE_URL": { "dev": "${service:db.url}" },
+        "JWT_SECRET": { "generate": "hex", "bytes": 32 },
+        "NODE_ENV": { "dev": "development" },
+        "PORT": { "dev": "3000" }
+      }
+    }
+  ]
+}
