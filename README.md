@@ -72,7 +72,7 @@ Ein eigenes Secret erhält man zum Beispiel mit:
 JWT_SECRET=$(openssl rand -hex 32) docker compose up
 ```
 
-Wird kein `JWT_SECRET` gesetzt, erzeugt der Launcher bei jedem Start ein neues. Bereits ausgegebene Tokens werden dadurch ungültig. Ohne gesetztes Secret startet die Anwendung nicht.
+Wird kein `JWT_SECRET` gesetzt, erzeugt der Launcher bei jedem Start ein neues. Bereits ausgegebene Tokens werden dadurch ungültig. Ein Start ohne Container (siehe „Build für die Produktion“ und „Deployment auf einem Server“) benötigt dagegen ein explizit gesetztes `JWT_SECRET`; fehlt es, bricht die Anwendung mit einer Fehlermeldung ab.
 
 ## Seed-Daten
 

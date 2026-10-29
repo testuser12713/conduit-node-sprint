@@ -8,7 +8,7 @@ services:
       POSTGRES_DB: conduit
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql
     healthcheck:
@@ -44,8 +44,7 @@ services:
         npm ci --no-audit --no-fund
         npx prisma generate
         npm run build
-        npx prisma migrate deploy
-        node dist/api/main.js
+        npm run start:prod
 
 volumes:
   db-data:
