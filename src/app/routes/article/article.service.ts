@@ -5,6 +5,60 @@ import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
+const articleInclude = {
+  tagList: {
+    select: {
+      name: true,
+    },
+  },
+  author: {
+    select: {
+      username: true,
+      bio: true,
+      image: true,
+      followedBy: true,
+    },
+  },
+  favoritedBy: true,
+  bookmarkedBy: true,
+  _count: {
+    select: {
+      favoritedBy: true,
+    },
+  },
+};
+
+interface BookmarkUser {
+  id: number;
+}
+
+interface ArticleForMapping {
+  author: {
+    username: string;
+    bio: string | null;
+    image: string | null;
+    followedBy: BookmarkUser[];
+  };
+  tagList?: { name: string }[];
+  favoritedBy: BookmarkUser[];
+}
+
+const mapFavoritedArticle = <T extends ArticleForMapping>(
+  article: T,
+  _count: { favoritedBy?: number } | undefined,
+  bookmarkedBy: BookmarkUser[] | null | undefined,
+  id: number
+) => ({
+  ...article,
+  author: profileMapper(article.author, id),
+  tagList: article?.tagList?.map((tag: Tag) => tag.name),
+  favorited: article.favoritedBy.some(
+    (favorited: BookmarkUser) => favorited.id === id
+  ),
+  favoritesCount: _count?.favoritedBy,
+  bookmarked: (bookmarkedBy ?? []).some((item: BookmarkUser) => item.id === id),
+});
+
 const buildFindAllQuery = (query: any, id: number | undefined) => {
   const queries: any = [];
   const orAuthorQuery = [];
@@ -81,27 +135,7 @@ export const getArticles = async (query: any, id?: number) => {
     },
     skip: Number(query.offset) || 0,
     take: Number(query.limit) || 10,
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: articleInclude,
   });
 
   return {
@@ -130,27 +164,7 @@ export const getFeed = async (offset: number, limit: number, id: number) => {
     },
     skip: offset || 0,
     take: limit || 10,
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: articleInclude,
   });
 
   return {
@@ -212,27 +226,7 @@ export const createArticle = async (article: any, id: number) => {
         },
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: articleInclude,
   });
 
   return articleMapper(createdArticle, id);
@@ -243,27 +237,7 @@ export const getArticle = async (slug: string, id?: number) => {
     where: {
       slug,
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: articleInclude,
   });
 
   if (!article) {
@@ -356,27 +330,7 @@ export const updateArticle = async (article: any, slug: string, id: number) => {
         connectOrCreate: tagList,
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: articleInclude,
   });
 
   return articleMapper(updatedArticle, id);
@@ -560,7 +514,7 @@ export const deleteComment = async (id: number, userId: number) => {
 };
 
 export const favoriteArticle = async (slugPayload: string, id: number) => {
-  const { _count, ...article } = await prisma.article.update({
+  const { _count, bookmarkedBy, ...article } = await prisma.article.update({
     where: {
       slug: slugPayload,
     },
@@ -571,42 +525,14 @@ export const favoriteArticle = async (slugPayload: string, id: number) => {
         },
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: articleInclude,
   });
 
-  const result = {
-    ...article,
-    author: profileMapper(article.author, id),
-    tagList: article?.tagList.map((tag: Tag) => tag.name),
-    favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
-    favoritesCount: _count?.favoritedBy,
-  };
-
-  return result;
+  return mapFavoritedArticle(article, _count, bookmarkedBy, id);
 };
 
 export const unfavoriteArticle = async (slugPayload: string, id: number) => {
-  const { _count, ...article } = await prisma.article.update({
+  const { _count, bookmarkedBy, ...article } = await prisma.article.update({
     where: {
       slug: slugPayload,
     },
@@ -617,36 +543,8 @@ export const unfavoriteArticle = async (slugPayload: string, id: number) => {
         },
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: articleInclude,
   });
 
-  const result = {
-    ...article,
-    author: profileMapper(article.author, id),
-    tagList: article?.tagList.map((tag: Tag) => tag.name),
-    favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
-    favoritesCount: _count?.favoritedBy,
-  };
-
-  return result;
+  return mapFavoritedArticle(article, _count, bookmarkedBy, id);
 };
