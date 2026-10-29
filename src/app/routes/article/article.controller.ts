@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
+import HttpException from '../../models/http-exception.model';
 import auth from '../auth/auth';
 import {
   addBookmark,
@@ -257,7 +258,11 @@ router.post(
       const article = await addBookmark(req.params.slug, req.auth?.user?.id);
       res.json({ article });
     } catch (error) {
-      next(error);
+      if (error instanceof HttpException) {
+        next(error);
+        return;
+      }
+      res.status(500).json({ errors: { body: ['internal server error'] } });
     }
   },
 );
@@ -277,7 +282,11 @@ router.delete(
       const article = await removeBookmark(req.params.slug, req.auth?.user?.id);
       res.json({ article });
     } catch (error) {
-      next(error);
+      if (error instanceof HttpException) {
+        next(error);
+        return;
+      }
+      res.status(500).json({ errors: { body: ['internal server error'] } });
     }
   },
 );
