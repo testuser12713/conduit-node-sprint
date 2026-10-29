@@ -19,7 +19,11 @@ const articleInclude = {
       followedBy: true,
     },
   },
-  favoritedBy: true,
+  favoritedBy: {
+    select: {
+      id: true,
+    },
+  },
   bookmarkedBy: {
     select: {
       id: true,
@@ -520,33 +524,41 @@ export const deleteComment = async (id: number, userId: number) => {
 };
 
 const updateFavorite = async (slugPayload: string, id: number, connect: boolean) => {
-  const { _count, bookmarkedBy, ...article } = await prisma.article.update({
-    where: {
-      slug: slugPayload,
-    },
-    data: {
-      favoritedBy: connect
-        ? {
-            connect: {
-              id: id,
+  const { _count, favoritedBy, bookmarkedBy, author, tagList, ...article } =
+    await prisma.article.update({
+      where: {
+        slug: slugPayload,
+      },
+      data: {
+        favoritedBy: connect
+          ? {
+              connect: {
+                id: id,
+              },
+            }
+          : {
+              disconnect: {
+                id: id,
+              },
             },
-          }
-        : {
-            disconnect: {
-              id: id,
-            },
-          },
-    },
-    include: articleInclude,
-  });
+      },
+      include: articleInclude,
+    });
 
   return {
-    ...article,
-    author: profileMapper(article.author, id),
-    tagList: article?.tagList.map((tag: Tag) => tag.name),
-    favorited: article.favoritedBy.some((favorited) => favorited.id === id),
+    id: article.id,
+    authorId: article.authorId,
+    slug: article.slug,
+    title: article.title,
+    description: article.description,
+    body: article.body,
+    tagList: tagList.map((tag: Tag) => tag.name),
+    createdAt: article.createdAt,
+    updatedAt: article.updatedAt,
+    favorited: favoritedBy.some((favorited) => favorited.id === id),
     favoritesCount: _count?.favoritedBy,
     bookmarked: bookmarkedBy.some((bookmarked) => bookmarked.id === id),
+    author: profileMapper(author, id),
   };
 };
 
