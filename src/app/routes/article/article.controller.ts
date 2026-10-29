@@ -8,6 +8,7 @@ import {
   favoriteArticle,
   getArticle,
   getArticles,
+  getBookmarkedArticles,
   getCommentsByArticle,
   getFeed,
   unfavoriteArticle,
@@ -50,6 +51,31 @@ router.get(
       const result = await getFeed(
         Number(req.query.offset),
         Number(req.query.limit),
+        req.auth?.user?.id,
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * Get paginated bookmarked articles of the current user
+ * @auth required
+ * @route {GET} /articles/bookmarks
+ * @queryparam offset number of bookmarked articles dismissed from the first one
+ * @queryparam limit number of bookmarked articles returned
+ * @returns articles: list of bookmarked articles
+ */
+router.get(
+  '/articles/bookmarks',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await getBookmarkedArticles(
+        Number(req.query.limit),
+        Number(req.query.offset),
         req.auth?.user?.id,
       );
       res.json(result);

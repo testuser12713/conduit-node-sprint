@@ -146,6 +146,39 @@ export const getFeed = async (offset: number, limit: number, id: number) => {
   };
 };
 
+export const getBookmarkedArticles = async (
+  limit: number | undefined,
+  offset: number | undefined,
+  id: number,
+) => {
+  const where = {
+    bookmarkedBy: {
+      some: {
+        id,
+      },
+    },
+  };
+
+  const articlesCount = await prisma.article.count({
+    where,
+  });
+
+  const articles = await prisma.article.findMany({
+    where,
+    orderBy: {
+      createdAt: 'desc',
+    },
+    skip: Number(offset) || 0,
+    take: Number(limit) || 20,
+    include: articleInclude,
+  });
+
+  return {
+    articles: articles.map((article) => articleMapper(article, id)),
+    articlesCount,
+  };
+};
+
 export const createArticle = async (article: any, id: number) => {
   const { title, description, body, tagList } = article;
   const tags = Array.isArray(tagList) ? tagList : [];
