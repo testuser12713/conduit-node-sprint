@@ -1,0 +1,31 @@
+{
+  "runcontract": 1,
+  "services": [
+    {
+      "name": "db",
+      "kind": "database",
+      "engine": "postgres"
+    },
+    {
+      "name": "api",
+      "dir": ".",
+      "stack": "node",
+      "kind": "server",
+      "install": [["npm", "install", "--include=dev", "--no-audit", "--no-fund"]],
+      "build": [["npm", "run", "build"]],
+      "test": [["npm", "test"]],
+      "start": ["node", "dist/api/main.js"],
+      "port": 3000,
+      "port_env": "PORT",
+      "health": {
+        "path": "/",
+        "expect_status": [200]
+      },
+      "env": {
+        "DATABASE_URL": { "dev": "${service:db.url}" },
+        "JWT_SECRET": { "generate": "hex", "bytes": 32 },
+        "NODE_ENV": { "dev": "production" }
+      }
+    }
+  ]
+}
