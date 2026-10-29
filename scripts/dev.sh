@@ -107,7 +107,7 @@ else
 fi
 
 echo "Installing dependencies ..."
-npm install --no-audit --no-fund
+npm install --include=dev --no-audit --no-fund
 
 echo "Generating the Prisma client ..."
 npx prisma generate
