@@ -2,7 +2,7 @@ import slugify from 'slugify';
 import prisma from '../../../prisma/prisma-client';
 import HttpException from '../../models/http-exception.model';
 import profileMapper from '../profile/profile.utils';
-import articleMapper from './article.mapper';
+import articleMapper, { articleBookmarkInclude } from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
 const buildFindAllQuery = (query: any, id: number | undefined) => {
@@ -66,6 +66,29 @@ const buildFindAllQuery = (query: any, id: number | undefined) => {
   return queries;
 };
 
+const buildArticleInclude = (id?: number) => ({
+  ...articleBookmarkInclude(id),
+  tagList: {
+    select: {
+      name: true,
+    },
+  },
+  author: {
+    select: {
+      username: true,
+      bio: true,
+      image: true,
+      followedBy: true,
+    },
+  },
+  favoritedBy: true,
+  _count: {
+    select: {
+      favoritedBy: true,
+    },
+  },
+});
+
 export const getArticles = async (query: any, id?: number) => {
   const andQueries = buildFindAllQuery(query, id);
   const articlesCount = await prisma.article.count({
@@ -81,27 +104,7 @@ export const getArticles = async (query: any, id?: number) => {
     },
     skip: Number(query.offset) || 0,
     take: Number(query.limit) || 10,
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: buildArticleInclude(id),
   });
 
   return {
@@ -130,27 +133,7 @@ export const getFeed = async (offset: number, limit: number, id: number) => {
     },
     skip: offset || 0,
     take: limit || 10,
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: buildArticleInclude(id),
   });
 
   return {
@@ -212,27 +195,7 @@ export const createArticle = async (article: any, id: number) => {
         },
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: buildArticleInclude(id),
   });
 
   return articleMapper(createdArticle, id);
@@ -243,27 +206,7 @@ export const getArticle = async (slug: string, id?: number) => {
     where: {
       slug,
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: buildArticleInclude(id),
   });
 
   if (!article) {
@@ -356,27 +299,7 @@ export const updateArticle = async (article: any, slug: string, id: number) => {
         connectOrCreate: tagList,
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: buildArticleInclude(id),
   });
 
   return articleMapper(updatedArticle, id);
@@ -559,8 +482,37 @@ export const deleteComment = async (id: number, userId: number) => {
   });
 };
 
+type FavoritedArticle = {
+  tagList: { name: string }[];
+  author: {
+    username: string;
+    bio: string | null;
+    image: string | null;
+    followedBy: { id: number }[];
+  };
+  favoritedBy: { id: number }[];
+  bookmarkedBy?: { userId: number }[];
+  _count?: { favoritedBy: number } | null;
+  [key: string]: unknown;
+};
+
+const buildFavoritedArticle = (updatedArticle: FavoritedArticle, id: number) => {
+  const { _count, bookmarkedBy, ...article } = updatedArticle;
+
+  return {
+    ...article,
+    author: profileMapper(article.author, id),
+    tagList: article?.tagList.map((tag: Tag) => tag.name),
+    favorited: article.favoritedBy.some(
+      (favorited: { id: number }) => favorited.id === id,
+    ),
+    favoritesCount: _count?.favoritedBy,
+    bookmarked: (bookmarkedBy ?? []).some((entry) => entry.userId === id),
+  };
+};
+
 export const favoriteArticle = async (slugPayload: string, id: number) => {
-  const { _count, ...article } = await prisma.article.update({
+  const updatedArticle = await prisma.article.update({
     where: {
       slug: slugPayload,
     },
@@ -571,42 +523,14 @@ export const favoriteArticle = async (slugPayload: string, id: number) => {
         },
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: buildArticleInclude(id),
   });
 
-  const result = {
-    ...article,
-    author: profileMapper(article.author, id),
-    tagList: article?.tagList.map((tag: Tag) => tag.name),
-    favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
-    favoritesCount: _count?.favoritedBy,
-  };
-
-  return result;
+  return buildFavoritedArticle(updatedArticle as unknown as FavoritedArticle, id);
 };
 
 export const unfavoriteArticle = async (slugPayload: string, id: number) => {
-  const { _count, ...article } = await prisma.article.update({
+  const updatedArticle = await prisma.article.update({
     where: {
       slug: slugPayload,
     },
@@ -617,36 +541,8 @@ export const unfavoriteArticle = async (slugPayload: string, id: number) => {
         },
       },
     },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
-      },
-    },
+    include: buildArticleInclude(id),
   });
 
-  const result = {
-    ...article,
-    author: profileMapper(article.author, id),
-    tagList: article?.tagList.map((tag: Tag) => tag.name),
-    favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
-    favoritesCount: _count?.favoritedBy,
-  };
-
-  return result;
+  return buildFavoritedArticle(updatedArticle as unknown as FavoritedArticle, id);
 };
