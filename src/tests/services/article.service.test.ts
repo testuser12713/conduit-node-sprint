@@ -272,4 +272,52 @@ describe('ArticleService', () => {
       await expect(unfavoriteArticle(slug, id)).rejects.toThrowError();
     });
   });
+
+  describe('favorite response privacy', () => {
+    const otherUser = buildUserFixture({
+      id: 999,
+      username: 'OtherUser',
+      email: 'other-user@example.com',
+      password: 'hashed-secret',
+    });
+
+    test('should not expose the users who favorited the article', async () => {
+      // Given
+      const requester = buildUserFixture({ id: 123 });
+      const article = buildArticleFixture({ favoritedBy: [otherUser] });
+
+      // When
+      userMock.findUnique.mockResolvedValue(requester);
+      articleMock.update.mockResolvedValue({ ...article, _count: { favoritedBy: 1 } });
+
+      // Then
+      const result = await favoriteArticle(article.slug, requester.id);
+      const payload = JSON.stringify(result);
+
+      expect(result).not.toHaveProperty('favoritedBy');
+      expect(payload).not.toContain(otherUser.email);
+      expect(payload).not.toContain(otherUser.password);
+      expect(result.favorited).toBe(false);
+      expect(result.favoritesCount).toBe(1);
+    });
+
+    test('should not expose the users who favorited the article on unfavorite', async () => {
+      // Given
+      const requester = buildUserFixture({ id: 123 });
+      const article = buildArticleFixture({ favoritedBy: [otherUser] });
+
+      // When
+      userMock.findUnique.mockResolvedValue(requester);
+      articleMock.update.mockResolvedValue({ ...article, _count: { favoritedBy: 1 } });
+
+      // Then
+      const result = await unfavoriteArticle(article.slug, requester.id);
+      const payload = JSON.stringify(result);
+
+      expect(result).not.toHaveProperty('favoritedBy');
+      expect(payload).not.toContain(otherUser.email);
+      expect(payload).not.toContain(otherUser.password);
+      expect(result.favoritesCount).toBe(1);
+    });
+  });
 });
