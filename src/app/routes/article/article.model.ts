@@ -5,6 +5,7 @@ export interface Article {
   title: string;
   slug: string;
   description: string;
+  readingTime: number;
   comments: Comment[];
   favorited: boolean;
 }
