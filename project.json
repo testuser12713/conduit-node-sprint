@@ -4,9 +4,17 @@
   "sourceRoot": "src",
   "projectType": "application",
   "targets": {
+    "prisma-generate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "prisma generate"
+      }
+    },
     "build": {
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
+      "dependsOn": ["prisma-generate"],
       "defaultConfiguration": "production",
       "options": {
         "platform": "node",
