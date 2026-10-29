@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response, Router } from 'express';
+import HttpException from '../../models/http-exception.model';
 import auth from '../auth/auth';
 import {
+  addBookmark,
   addComment,
   createArticle,
   deleteArticle,
@@ -10,6 +12,7 @@ import {
   getArticles,
   getCommentsByArticle,
   getFeed,
+  removeBookmark,
   unfavoriteArticle,
   updateArticle,
 } from './article.service';
@@ -236,6 +239,54 @@ router.delete(
       res.json({ article });
     } catch (error) {
       next(error);
+    }
+  },
+);
+
+/**
+ * Bookmark article
+ * @auth required
+ * @route {POST} /articles/:slug/bookmark
+ * @param slug slug of the article (based on the title)
+ * @returns article bookmarked article
+ */
+router.post(
+  '/articles/:slug/bookmark',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const article = await addBookmark(req.params.slug, req.auth?.user?.id);
+      res.json({ article });
+    } catch (error) {
+      if (error instanceof HttpException) {
+        next(error);
+        return;
+      }
+      res.status(500).json({ errors: { body: ['internal server error'] } });
+    }
+  },
+);
+
+/**
+ * Remove bookmark from article
+ * @auth required
+ * @route {DELETE} /articles/:slug/bookmark
+ * @param slug slug of the article (based on the title)
+ * @returns article unbookmarked article
+ */
+router.delete(
+  '/articles/:slug/bookmark',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const article = await removeBookmark(req.params.slug, req.auth?.user?.id);
+      res.json({ article });
+    } catch (error) {
+      if (error instanceof HttpException) {
+        next(error);
+        return;
+      }
+      res.status(500).json({ errors: { body: ['internal server error'] } });
     }
   },
 );
