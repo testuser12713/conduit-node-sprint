@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "start": "nx serve",
+    "dev": "node scripts/dev.cjs",
     "build": "nx build",
     "test": "nx test"
   },
