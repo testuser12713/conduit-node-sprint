@@ -24,28 +24,28 @@ app.get('/', (req: express.Request, res: express.Response) => {
 });
 
 /* eslint-disable */
-app.use(
-  (
-    err: Error | HttpException,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    // @ts-ignore
-    if (err && err.name === 'UnauthorizedError') {
-      return res.status(401).json({
-        status: 'error',
-        message: 'missing authorization credentials',
-      });
-      // @ts-ignore
-    } else if (err && err.errorCode) {
-      // @ts-ignore
-      res.status(err.errorCode).json(err.message);
-    } else if (err) {
-      res.status(500).json(err.message);
-    }
-  },
-);
+export const errorHandler = (
+  err: Error | HttpException,
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) => {
+  if (err && err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      status: 'error',
+      message: 'missing authorization credentials',
+    });
+  } else if (err instanceof HttpException) {
+    res.status(err.errorCode).json(err.message);
+  } else if (err) {
+    // Anything that is not an HttpException may carry a raw Prisma/SQL message
+    // or an internal stacktrace; answer with a fixed message in the
+    // HttpException body shape instead of echoing err.message.
+    res.status(500).json({ errors: { body: ['internal server error'] } });
+  }
+};
+
+app.use(errorHandler);
 
 /**
  * Database schema
