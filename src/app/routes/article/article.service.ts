@@ -1,8 +1,10 @@
 import slugify from 'slugify';
+import { Prisma } from '@prisma/client';
 import prisma from '../../../prisma/prisma-client';
 import HttpException from '../../models/http-exception.model';
 import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
+import { calculateReadingTime } from './reading-time.utils';
 import { Tag } from '../tag/tag.model';
 
 const buildFindAllQuery = (query: any, id: number | undefined) => {
@@ -559,18 +561,16 @@ export const deleteComment = async (id: number, userId: number) => {
   });
 };
 
-export const favoriteArticle = async (slugPayload: string, id: number) => {
+const updateFavoriteState = async (
+  slugPayload: string,
+  id: number,
+  data: Prisma.ArticleUpdateInput,
+) => {
   const { _count, ...article } = await prisma.article.update({
     where: {
       slug: slugPayload,
     },
-    data: {
-      favoritedBy: {
-        connect: {
-          id: id,
-        },
-      },
-    },
+    data,
     include: {
       tagList: {
         select: {
@@ -594,59 +594,30 @@ export const favoriteArticle = async (slugPayload: string, id: number) => {
     },
   });
 
-  const result = {
+  return {
     ...article,
     author: profileMapper(article.author, id),
     tagList: article?.tagList.map((tag: Tag) => tag.name),
     favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
     favoritesCount: _count?.favoritedBy,
+    readingTime: calculateReadingTime(article.body),
   };
-
-  return result;
 };
 
-export const unfavoriteArticle = async (slugPayload: string, id: number) => {
-  const { _count, ...article } = await prisma.article.update({
-    where: {
-      slug: slugPayload,
-    },
-    data: {
-      favoritedBy: {
-        disconnect: {
-          id: id,
-        },
-      },
-    },
-    include: {
-      tagList: {
-        select: {
-          name: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          bio: true,
-          image: true,
-          followedBy: true,
-        },
-      },
-      favoritedBy: true,
-      _count: {
-        select: {
-          favoritedBy: true,
-        },
+export const favoriteArticle = async (slugPayload: string, id: number) =>
+  updateFavoriteState(slugPayload, id, {
+    favoritedBy: {
+      connect: {
+        id: id,
       },
     },
   });
 
-  const result = {
-    ...article,
-    author: profileMapper(article.author, id),
-    tagList: article?.tagList.map((tag: Tag) => tag.name),
-    favorited: article.favoritedBy.some((favorited: any) => favorited.id === id),
-    favoritesCount: _count?.favoritedBy,
-  };
-
-  return result;
-};
+export const unfavoriteArticle = async (slugPayload: string, id: number) =>
+  updateFavoriteState(slugPayload, id, {
+    favoritedBy: {
+      disconnect: {
+        id: id,
+      },
+    },
+  });
