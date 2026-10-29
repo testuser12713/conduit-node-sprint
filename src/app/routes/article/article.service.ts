@@ -546,3 +546,69 @@ export const unfavoriteArticle = async (slugPayload: string, id: number) => {
 
   return buildFavoritedArticle(updatedArticle as unknown as FavoritedArticle, id);
 };
+
+type BookmarkedArticle = {
+  id: number;
+  bookmarkedBy?: { userId: number }[];
+  [key: string]: unknown;
+};
+
+const findArticleForBookmark = async (slug: string, userId: number) => {
+  const article = await prisma.article.findUnique({
+    where: {
+      slug,
+    },
+    include: buildArticleInclude(userId),
+  });
+
+  if (!article) {
+    throw new HttpException(404, { errors: { article: ['not found'] } });
+  }
+
+  return article as unknown as BookmarkedArticle;
+};
+
+const isBookmarked = (
+  article: { bookmarkedBy?: { userId: number }[] },
+  userId: number,
+) => (article.bookmarkedBy ?? []).some((entry) => entry.userId === userId);
+
+export const addBookmark = async (slug: string, userId: number) => {
+  const article = await findArticleForBookmark(slug, userId);
+
+  if (!isBookmarked(article, userId)) {
+    await prisma.userBookmarks.create({
+      data: {
+        userId,
+        articleId: article.id,
+      },
+    });
+
+    const bookmarkedArticle = await findArticleForBookmark(slug, userId);
+
+    return articleMapper(bookmarkedArticle, userId);
+  }
+
+  return articleMapper(article, userId);
+};
+
+export const removeBookmark = async (slug: string, userId: number) => {
+  const article = await findArticleForBookmark(slug, userId);
+
+  if (isBookmarked(article, userId)) {
+    await prisma.userBookmarks.delete({
+      where: {
+        userId_articleId: {
+          userId,
+          articleId: article.id,
+        },
+      },
+    });
+
+    const unbookmarkedArticle = await findArticleForBookmark(slug, userId);
+
+    return articleMapper(unbookmarkedArticle, userId);
+  }
+
+  return articleMapper(article, userId);
+};
